@@ -121,6 +121,12 @@ fi
 # Cargar variables
 source .env
 
+# Compatibilidad con .env existentes creados antes de introducir
+# puertos host configurables para entornos rootless.
+HOST_HTTP_PORT="${HOST_HTTP_PORT:-8080}"
+HOST_HTTPS_PORT="${HOST_HTTPS_PORT:-8443}"
+HOST_ODOO_PORT="${HOST_ODOO_PORT:-8069}"
+
 # ==============================================================
 # 3. CREAR SECRETOS CIFRADOS
 # ==============================================================
@@ -249,7 +255,7 @@ echo "============================================"
 echo ""
 echo " Sede:      ${ROLE^^}"
 echo " Nodo:      ${NODE_ID}"
-echo " Odoo:      http://localhost:80"
+echo " Odoo:      http://localhost:${HOST_HTTP_PORT}"
 echo ""
 echo " 🔒 SEGURIDAD:"
 echo "   - Contraseñas cifradas en $CONTAINER_CMD secret"

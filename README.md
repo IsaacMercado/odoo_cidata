@@ -1,6 +1,6 @@
 # Odoo CIDA — Despliegue Multi-Sede
 
-Sistema ERP (Odoo 18 Community) desplegado en dos sedes con sincronización
+Sistema ERP (Odoo 19 Community) desplegado en dos sedes con sincronización
 bidireccional de datos vía SymmetricDS y conectividad VPN vía Tailscale.
 
 ## Arquitectura
@@ -14,10 +14,11 @@ bidireccional de datos vía SymmetricDS y conectividad VPN vía Tailscale.
 │  ├─────────────────┤    │Tailscale│    ├─────────────────┤  │
 │  │   Nginx         │    │         │    │   Nginx         │  │
 │  ├─────────────────┤    │         │    ├─────────────────┤  │
-│  │   Odoo 18       │    │         │    │   Odoo 18       │  │
+│  │   Odoo 19       │    │         │    │   Odoo 19       │  │
 │  │   IDs: 1-100M   │    │         │    │   IDs: 100M+    │  │
 │  ├─────────────────┤    │         │    ├─────────────────┤  │
-│  │   PostgreSQL 16 │    │         │    │   PostgreSQL 16 │  │
+│  │ PostgreSQL 17 + │    │         │    │ PostgreSQL 17 + │  │
+│  │    pgvector     │    │         │    │    pgvector     │  │
 │  ├─────────────────┤    │         │    ├─────────────────┤  │
 │  │   SymmetricDS   │◄───┼── Sync ─┼───►│   SymmetricDS   │  │
 │  ├─────────────────┤    │         │    ├─────────────────┤  │
@@ -31,6 +32,7 @@ bidireccional de datos vía SymmetricDS y conectividad VPN vía Tailscale.
 - Linux con motor de contenedores (**Docker** o **Podman**) y su herramienta compose (`docker compose` o `podman-compose`)
 - Cuenta de [Tailscale](https://tailscale.com) (gratuita hasta 100 dispositivos)
 - Dispositivo `/dev/net/tun` disponible (`sudo modprobe tun`)
+- Si usas ejecución rootless, el proyecto expone por defecto `8080/8443` en el host para evitar puertos privilegiados
 
 ## Instalación Rápida
 
@@ -66,7 +68,7 @@ chmod +x scripts/setup.sh scripts/backup.sh
 
 ### 4. Acceder a Odoo
 
-Abrir en el navegador: **http://localhost**
+Abrir en el navegador: **http://localhost:8080**
 
 ## Estructura de Archivos
 
@@ -210,7 +212,7 @@ Si alguien roba la computadora, el disco cifrado protege los datos:
 # [Desktop Entry]
 # Type=Application
 # Name=Odoo POS
-# Exec=firefox --kiosk http://localhost
+# Exec=firefox --kiosk http://localhost:8080
 ```
 
 #### 5. BIOS/UEFI protegido

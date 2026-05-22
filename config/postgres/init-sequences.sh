@@ -25,6 +25,8 @@ echo "============================================"
 # Crear función que será llamada después de que Odoo
 # inicialice la base de datos para reconfigurar las secuencias
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    CREATE EXTENSION IF NOT EXISTS vector;
+
     -- Función para reconfigurar todas las secuencias de una BD
     CREATE OR REPLACE FUNCTION reset_all_sequences(seq_start BIGINT)
     RETURNS void AS \$\$

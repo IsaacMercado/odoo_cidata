@@ -41,9 +41,9 @@ services:
       - /dev/net/tun:/dev/net/tun
     ports:
       # Solo accesible desde la máquina local
-      - "127.0.0.1:80:80"
-      - "127.0.0.1:443:443"
-      - "127.0.0.1:8069:8069"
+      - "127.0.0.1:${HOST_HTTP_PORT:-8080}:80"
+      - "127.0.0.1:${HOST_HTTPS_PORT:-8443}:443"
+      - "127.0.0.1:${HOST_ODOO_PORT:-8069}:8069"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "tailscale", "status", "--json"]
@@ -52,10 +52,10 @@ services:
       retries: 3
 
   # ----------------------------------------------------------
-  # PostgreSQL 16 — Base de datos
+  # PostgreSQL 17 + pgvector — Base de datos
   # ----------------------------------------------------------
   postgres:
-    image: docker.io/library/postgres:16-alpine
+    image: docker.io/pgvector/pgvector:pg17
     container_name: postgres-${NODE_ID}
     network_mode: "service:tailscale"
     environment:
@@ -69,8 +69,8 @@ services:
       - pg_password
     volumes:
       - pg-data:/var/lib/postgresql/data
-      - ./config/postgres/init-sequences.sh:/docker-entrypoint-initdb.d/01-init-sequences.sh:ro
-      - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./config/postgres/init-sequences.sh:/docker-entrypoint-initdb.d/01-init-sequences.sh:ro,Z
+      - ./config/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro,Z
     command: >
       postgres
         -c hba_file=/etc/postgresql/pg_hba.conf
@@ -90,10 +90,10 @@ services:
       retries: 5
 
   # ----------------------------------------------------------
-  # Odoo 18 Community — ERP / POS
+  # Odoo 19 Community — ERP / POS
   # ----------------------------------------------------------
   odoo:
-    image: docker.io/library/odoo:18.0
+    image: docker.io/library/odoo:19.0
     container_name: odoo-${NODE_ID}
     network_mode: "service:tailscale"
     environment:
@@ -107,11 +107,15 @@ services:
     command:
       - |
         export PASSWORD=$$(cat /run/secrets/pg_password)
-        exec /usr/bin/odoo --config /etc/odoo/odoo.conf
+        exec /usr/bin/odoo --config /etc/odoo/odoo.conf \
+          --db_host=127.0.0.1 \
+          --db_port=5432 \
+          --db_user=${POSTGRES_USER} \
+          --db_password="$${PASSWORD}"
     volumes:
       - odoo-data:/var/lib/odoo
-      - ./addons:/mnt/extra-addons
-      - ./config/odoo/odoo.conf:/etc/odoo/odoo.conf:ro
+      - ./addons:/mnt/extra-addons:Z
+      - ./config/odoo/odoo.conf:/etc/odoo/odoo.conf:ro,Z
     depends_on:
       postgres:
         condition: service_healthy
@@ -131,7 +135,7 @@ services:
     container_name: nginx-${NODE_ID}
     network_mode: "service:tailscale"
     volumes:
-      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx/nginx.conf:/etc/nginx/nginx.conf:ro,Z
     depends_on:
       odoo:
         condition: service_healthy
@@ -147,7 +151,7 @@ services:
     secrets:
       - pg_password
     volumes:
-      - ./config/symmetricds/${NODE_ROLE}.properties:/opt/symmetric-ds/engines/node.properties.template:ro
+      - ./config/symmetricds/${NODE_ROLE}.properties:/opt/symmetric-ds/engines/node.properties.template:ro,Z
       - symmetricds-data:/opt/symmetric-ds/tmp
     environment:
       - SYM_NODE_ROLE=${NODE_ROLE}
@@ -167,7 +171,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:31415/api/engine/status || exit 1"]
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 31415 || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -177,7 +181,7 @@ services:
   # Backup — pg_dump automático cada N horas
   # ----------------------------------------------------------
   backup:
-    image: docker.io/library/postgres:16-alpine
+    image: docker.io/library/postgres:17-alpine
     container_name: backup-${NODE_ID}
     network_mode: "service:tailscale"
     secrets:
@@ -189,8 +193,8 @@ services:
       - RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-7}
       - INTERVAL_HOURS=${BACKUP_INTERVAL_HOURS:-6}
     volumes:
-      - ./backups:/backups
-      - ./scripts/backup.sh:/backup.sh:ro
+      - ./backups:/backups:Z
+      - ./scripts/backup.sh:/backup.sh:ro,Z
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
