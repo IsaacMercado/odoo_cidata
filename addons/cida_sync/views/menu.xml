@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- ================================================== -->
+    <!-- Menú Principal: CIDA Sync                          -->
+    <!-- ================================================== -->
+
+    <menuitem id="menu_cida_sync_root"
+              name="🔄 CIDA Sync"
+              web_icon="cida_sync,static/description/icon.png"
+              sequence="100"/>
+
+    <menuitem id="menu_cida_sync_config"
+              name="Configuración"
+              parent="menu_cida_sync_root"
+              action="action_cida_sync_config"
+              sequence="10"/>
+
+    <menuitem id="menu_cida_sync_log"
+              name="Historial"
+              parent="menu_cida_sync_root"
+              action="action_cida_sync_log"
+              sequence="20"/>
+
+</odoo>

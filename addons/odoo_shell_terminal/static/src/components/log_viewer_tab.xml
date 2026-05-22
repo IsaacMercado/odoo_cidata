@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="odoo_shell_terminal.LogViewerTab">
+        <div class="o_log_viewer_tab">
+            <!-- Log output -->
+            <div class="o_log_output" t-ref="logOutput">
+                <t t-foreach="filteredLines" t-as="line" t-key="line_index">
+                    <div t-att-class="'o_log_line ' + getLineClass(line)" t-esc="line"/>
+                </t>
+                <t t-if="!state.connected and !state.lines.length">
+                    <div class="o_log_connecting">
+                        <i class="fa fa-spinner fa-spin me-1"/>Connecting to log stream...
+                    </div>
+                </t>
+                <div t-ref="logBottom"/>
+            </div>
+
+            <!-- Toolbar -->
+            <div class="o_log_toolbar">
+                <span t-att-class="'o_log_status ' + (state.connected ? 'connected' : 'disconnected')"
+                      t-att-title="state.connected ? 'Connected' : 'Reconnecting...'">
+                    <i t-att-class="'fa ' + (state.connected ? 'fa-circle text-success' : 'fa-circle text-danger')"/>
+                </span>
+                <input
+                    type="text"
+                    class="o_log_filter"
+                    placeholder="Filter logs..."
+                    t-att-value="state.filter"
+                    t-on-input="onFilterInput"
+                />
+                <button
+                    t-att-class="'btn btn-sm ' + (state.autoScroll ? 'btn-primary' : 'btn-secondary')"
+                    t-on-click="toggleAutoScroll"
+                    title="Toggle auto-scroll"
+                >
+                    <i class="fa fa-angle-double-down"/>
+                </button>
+                <button class="btn btn-sm btn-secondary" t-on-click="clearLines" title="Clear">
+                    <i class="fa fa-trash"/>
+                </button>
+            </div>
+        </div>
+    </t>
+</templates>

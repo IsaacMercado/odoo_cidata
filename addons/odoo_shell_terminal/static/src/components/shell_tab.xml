@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="odoo_shell_terminal.ShellTab">
+        <div class="o_shell_tab" t-on-mousedown="onTabMouseDown">
+            <!-- Output area -->
+            <div class="o_shell_output" t-ref="output">
+                <t t-foreach="state.history" t-as="entry" t-key="entry_index">
+                    <div class="o_shell_entry">
+                        <div class="o_shell_input-echo">
+                            <span class="o_shell_prompt">&gt;&gt;&gt; </span>
+                            <span t-esc="entry.input"/>
+                        </div>
+                        <t t-if="entry.output">
+                            <div class="o_shell_result" t-esc="entry.output"/>
+                        </t>
+                        <t t-if="entry.result">
+                            <div class="o_shell_result" t-esc="entry.result"/>
+                        </t>
+                        <t t-if="entry.error">
+                            <div class="o_shell_error" t-esc="entry.error"/>
+                        </t>
+                    </div>
+                </t>
+                <t t-if="state.loading">
+                    <div class="o_shell_loading">
+                        <i class="fa fa-spinner fa-spin me-1"/>Running...
+                    </div>
+                </t>
+            </div>
+
+            <!-- Input area -->
+            <div class="o_shell_input-area">
+                <div class="o_shell_input-row">
+                    <span class="o_shell_prompt-inline">&gt;&gt;&gt;</span>
+                    <textarea
+                        t-ref="input"
+                        class="o_shell_textarea"
+                        placeholder="Python code...  Enter to run  ·  Shift+Enter newline  ·  ↑↓ history"
+                        rows="2"
+                        t-att-value="state.input"
+                        t-on-input="onInputChange"
+                        t-on-keydown="onKeyDown"
+                    />
+                </div>
+                <div class="o_shell_actions">
+                    <button class="o_shell_action_btn o_shell_action_run" t-on-click="execute" t-att-disabled="state.loading" title="Run (Enter)">
+                        <i class="fa fa-play"/>
+                        <span>Run</span>
+                    </button>
+                    <button class="o_shell_action_btn o_shell_action_clear" t-on-click="clearHistory" title="Clear output">
+                        <i class="fa fa-trash"/>
+                        <span>Clear</span>
+                    </button>
+                    <button class="o_shell_action_btn o_shell_action_reset" t-on-click="resetNamespace" title="Reset session">
+                        <i class="fa fa-refresh"/>
+                        <span>Reset</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </t>
+</templates>

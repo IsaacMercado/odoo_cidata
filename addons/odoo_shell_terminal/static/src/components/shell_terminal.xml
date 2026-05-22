@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="odoo_shell_terminal.ShellTerminal">
+        <div class="o_shell_terminal" t-att-style="panelStyle" t-ref="panel">
+            <!-- Header / drag handle -->
+            <div class="o_shell_header" t-on-mousedown="onMouseDownHeader">
+                <span class="o_shell_title">
+                    <i class="fa fa-terminal me-2"/>Odoo Shell
+                </span>
+                <div class="o_shell_tabs">
+                    <button
+                        t-att-class="state.activeTab === 'shell' ? 'active' : ''"
+                        t-on-click="() => this.setTab('shell')"
+                    >Shell</button>
+                    <button
+                        t-att-class="state.activeTab === 'logs' ? 'active' : ''"
+                        t-on-click="() => this.setTab('logs')"
+                    >Logs</button>
+                </div>
+                <button class="o_shell_minimize" t-on-click="props.onMinimize" title="Minimize">−</button>
+                <button class="o_shell_close" t-on-click="props.onClose" title="Close">×</button>
+            </div>
+
+            <!-- Tab body — always mounted to preserve state across tab switches -->
+            <div class="o_shell_body">
+                <div t-att-style="state.activeTab !== 'shell' ? 'display:none' : 'display:contents'">
+                    <ShellTab/>
+                </div>
+                <div t-att-style="state.activeTab !== 'logs' ? 'display:none' : 'display:contents'">
+                    <LogViewerTab/>
+                </div>
+            </div>
+
+            <!-- Resize handle -->
+            <div class="o_shell_resize_handle" t-on-mousedown="onMouseDownResize"/>
+        </div>
+    </t>
+</templates>

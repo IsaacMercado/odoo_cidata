@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<templates xml:space="preserve">
+    <t t-name="odoo_shell_terminal.ShellSystray">
+        <t t-if="state.visible">
+            <div
+                class="o_shell_systray_item"
+                role="button"
+                title="Odoo Shell Terminal"
+                t-on-click="onSystrayClick"
+            >
+                <i class="fa fa-terminal"/>
+                <span t-if="state.terminalOpen and state.minimized" class="o_shell_systray_badge"/>
+            </div>
+            <div t-if="state.terminalOpen" t-att-style="state.minimized ? 'display:none' : ''">
+                <ShellTerminal
+                    minimized="state.minimized"
+                    onClose="() => this.closeTerminal()"
+                    onMinimize="() => { this.state.minimized = true; }"
+                />
+            </div>
+        </t>
+    </t>
+</templates>

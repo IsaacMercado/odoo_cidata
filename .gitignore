@@ -1,0 +1,22 @@
+# Secretos y credenciales
+secrets/
+.env
+*.key
+*.pem
+
+# Datos de volúmenes locales
+data/
+backups/
+
+# Archivos generados
+config/symmetricds/*.generated.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
