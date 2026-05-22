@@ -35,6 +35,71 @@ warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
 error() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 info()  { echo -e "${BLUE}[i]${NC} $1"; }
 
+dump_startup_diagnostics() {
+    warn "Diagnóstico de arranque"
+    $COMPOSE_CMD ps || true
+    echo ""
+
+    for SERVICE in tailscale postgres odoo symmetricds backup nginx; do
+        CONTAINER_NAME="${SERVICE}-${NODE_ID}"
+        if $CONTAINER_CMD inspect "$CONTAINER_NAME" &>/dev/null; then
+            echo "----- logs: ${CONTAINER_NAME} -----"
+            $CONTAINER_CMD logs --tail 40 "$CONTAINER_NAME" || true
+            echo ""
+        fi
+    done
+}
+
+wait_for_postgres() {
+    info "Esperando a que PostgreSQL esté listo..."
+    local RETRIES=0
+    local MAX_RETRIES=30
+
+    until $CONTAINER_CMD exec "postgres-${NODE_ID}" \
+        pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" > /dev/null 2>&1; do
+        RETRIES=$((RETRIES + 1))
+        if [[ $RETRIES -ge $MAX_RETRIES ]]; then
+            dump_startup_diagnostics
+            error "PostgreSQL no respondió después de ${MAX_RETRIES} intentos"
+        fi
+        echo -n "."
+        sleep 5
+    done
+
+    echo ""
+    log "PostgreSQL está listo"
+}
+
+initialize_odoo_if_needed() {
+    local ODOO_READY
+
+    ODOO_READY=$($CONTAINER_CMD exec "postgres-${NODE_ID}" psql \
+        -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+        "SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'ir_module_module';" \
+        2>/dev/null | tr -d '[:space:]')
+
+    if [[ "$ODOO_READY" == "1" ]]; then
+        log "La base de datos de Odoo ya está inicializada"
+        return 0
+    fi
+
+    info "Inicializando Odoo por primera vez..."
+    $CONTAINER_CMD exec "odoo-${NODE_ID}" sh -c '
+        PASSWORD=$(cat /run/secrets/pg_password)
+        exec /usr/bin/odoo --config /etc/odoo/odoo.conf \
+          --db_host=127.0.0.1 \
+          --db_port=5432 \
+          --db_user='"$POSTGRES_USER"' \
+          --db_password="$PASSWORD" \
+          --http-port=8079 \
+          -d '"$POSTGRES_DB"' \
+          -i base \
+          --without-demo=True \
+          --stop-after-init
+    '
+    log "Base de datos Odoo inicializada"
+}
+
 # --- Validar argumento ---
 ROLE="${1:-}"
 if [[ "$ROLE" != "central" && "$ROLE" != "turistica" ]]; then
@@ -206,16 +271,21 @@ log "Directorio de backups creado"
 
 # --- 5. Levantar el stack ---
 info "Levantando contenedores..."
-$COMPOSE_CMD up -d
-log "Contenedores iniciados"
+
+ $COMPOSE_CMD up -d
+
+wait_for_postgres
+initialize_odoo_if_needed
 
 # --- 6. Esperar a que Odoo inicialice ---
 info "Esperando a que Odoo inicialice la base de datos (puede tardar 2-5 min)..."
+info "El setup espera a Odoo; backup no bloquea el arranque"
 RETRIES=0
 MAX_RETRIES=30
 until $CONTAINER_CMD exec "odoo-${NODE_ID}" curl -sf http://127.0.0.1:8069/web/health > /dev/null 2>&1; do
     RETRIES=$((RETRIES + 1))
     if [[ $RETRIES -ge $MAX_RETRIES ]]; then
+        dump_startup_diagnostics
         error "Odoo no respondió después de ${MAX_RETRIES} intentos"
     fi
     echo -n "."
@@ -223,6 +293,8 @@ until $CONTAINER_CMD exec "odoo-${NODE_ID}" curl -sf http://127.0.0.1:8069/web/h
 done
 echo ""
 log "Odoo está listo"
+
+log "Contenedores iniciados"
 
 # --- 7. Reconfigurar secuencias ---
 info "Reconfigurando secuencias al rango de esta sede..."
