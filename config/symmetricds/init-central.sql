@@ -31,7 +31,8 @@ VALUES
     ('pos',      40, 10000, 1, 'Punto de venta'),
     ('sale',     50, 10000, 1, 'Órdenes de venta'),
     ('purchase', 60, 10000, 1, 'Órdenes de compra'),
-    ('config',   70, 5000,  1, 'Configuración compartida (monedas, impuestos)')
+    ('config',   70, 5000,  1, 'Configuración compartida (monedas, impuestos)'),
+    ('security', 80, 5000,  1, 'Usuarios, grupos, permisos y reglas desde central')
 ON CONFLICT (channel_id) DO NOTHING;
 
 -- =========================
@@ -69,122 +70,72 @@ ON CONFLICT (router_id) DO NOTHING;
 -- =========================
 -- 5. TRIGGERS — Tablas a sincronizar
 -- =========================
--- NOTA: sync_on_incoming_batch = 1 permite re-sincronizar
--- datos que llegaron de otro nodo (necesario para bidireccional)
-
--- --- Contactos ---
+-- Estrategia:
+--   - Capturar automáticamente casi todas las tablas de Odoo en `public`
+--   - Excluir tablas técnicas/locales que NO deben replicarse
+--   - Permitir que módulos nuevos entren solos sin tocar este SQL
+--
+-- Tablas excluidas intencionalmente:
+--   - sym_*        : internas de SymmetricDS (además SymmetricDS ya las evita)
+--   - ir_*         : metadatos, vistas, módulos, secuencias, crons, config técnica
+--   - mail_*       : colas/notificaciones/chatter técnico
+--   - bus_*        : websocket/presencia/eventos en tiempo real
+--   - auth_*       : autenticación local (TOTP, passkeys, etc.)
+--   - res_users*   : se sincroniza de forma explícita y unidireccional desde central
+--   - res_device*  : dispositivos/sesiones locales
+--   - ir_attachment: requiere estrategia separada de filestore
+--   - base_import_*, iap_*, fetchmail_*, queue_job* : tablas técnicas/servicio
+--   - pos_session  : sesiones activas muy sensibles; evaluar luego si hace falta
+--   - *_wizard*    : modelos transitorios/auxiliares
+--
+-- Inventario queda incluido por wildcard, porque la sede turística también
+-- recibe y procesa inventario. Si más adelante `stock_quant` genera ruido,
+-- será la primera tabla a reevaluar.
 INSERT INTO sym_trigger
-    (trigger_id, source_table_name, channel_id,
-     sync_on_incoming_batch, last_update_time, create_time)
+    (trigger_id, source_schema_name, source_table_name, channel_id,
+     sync_on_incoming_batch, last_update_time, create_time, description)
 VALUES
-    ('trig_res_partner', 'res_partner', 'partner',
-     1, current_timestamp, current_timestamp),
-    ('trig_res_partner_category', 'res_partner_category', 'partner',
-     1, current_timestamp, current_timestamp)
+    ('trig_odoo_operational',
+     'public',
+     '*,!sym_*,!ir_*,!mail_*,!bus_*,!auth_*,!res_users*,!res_device*,!ir_attachment,!base_import_*,!iap_*,!fetchmail_*,!queue_job*,!pos_session,!*_wizard*',
+     'default',
+     1,
+     current_timestamp,
+     current_timestamp,
+     'Wildcard para tablas operativas de Odoo con exclusión de tablas técnicas/locales')
 ON CONFLICT (trigger_id) DO NOTHING;
 
--- --- Productos ---
+-- Usuarios, grupos y permisos se sincronizan por una vía separada.
+-- La sede central es la única fuente de verdad para administración.
 INSERT INTO sym_trigger
-    (trigger_id, source_table_name, channel_id,
-     sync_on_incoming_batch, last_update_time, create_time)
+    (trigger_id, source_schema_name, source_table_name, channel_id,
+     sync_on_incoming_batch, last_update_time, create_time, description)
 VALUES
-    ('trig_product_category', 'product_category', 'product',
-     1, current_timestamp, current_timestamp),
-    ('trig_product_template', 'product_template', 'product',
-     1, current_timestamp, current_timestamp),
-    ('trig_product_product', 'product_product', 'product',
-     1, current_timestamp, current_timestamp),
-    ('trig_product_pricelist', 'product_pricelist', 'product',
-     1, current_timestamp, current_timestamp),
-    ('trig_product_pricelist_item', 'product_pricelist_item', 'product',
-     1, current_timestamp, current_timestamp),
-    ('trig_uom_uom', 'uom_uom', 'product',
-     1, current_timestamp, current_timestamp),
-    ('trig_uom_category', 'uom_category', 'product',
-     1, current_timestamp, current_timestamp)
-ON CONFLICT (trigger_id) DO NOTHING;
-
--- --- Inventario ---
-INSERT INTO sym_trigger
-    (trigger_id, source_table_name, channel_id,
-     sync_on_incoming_batch, last_update_time, create_time)
-VALUES
-    ('trig_stock_warehouse', 'stock_warehouse', 'stock',
-     1, current_timestamp, current_timestamp),
-    ('trig_stock_location', 'stock_location', 'stock',
-     1, current_timestamp, current_timestamp),
-    ('trig_stock_picking_type', 'stock_picking_type', 'stock',
-     1, current_timestamp, current_timestamp),
-    ('trig_stock_quant', 'stock_quant', 'stock',
-     1, current_timestamp, current_timestamp),
-    ('trig_stock_move', 'stock_move', 'stock',
-     1, current_timestamp, current_timestamp),
-    ('trig_stock_picking', 'stock_picking', 'stock',
-     1, current_timestamp, current_timestamp),
-    ('trig_stock_lot', 'stock_lot', 'stock',
-     1, current_timestamp, current_timestamp)
-ON CONFLICT (trigger_id) DO NOTHING;
-
--- --- Punto de Venta ---
-INSERT INTO sym_trigger
-    (trigger_id, source_table_name, channel_id,
-     sync_on_incoming_batch, last_update_time, create_time)
-VALUES
-    ('trig_pos_config', 'pos_config', 'pos',
-     1, current_timestamp, current_timestamp),
-    ('trig_pos_session', 'pos_session', 'pos',
-     1, current_timestamp, current_timestamp),
-    ('trig_pos_order', 'pos_order', 'pos',
-     1, current_timestamp, current_timestamp),
-    ('trig_pos_order_line', 'pos_order_line', 'pos',
-     1, current_timestamp, current_timestamp),
-    ('trig_pos_payment', 'pos_payment', 'pos',
-     1, current_timestamp, current_timestamp),
-    ('trig_pos_payment_method', 'pos_payment_method', 'pos',
-     1, current_timestamp, current_timestamp)
-ON CONFLICT (trigger_id) DO NOTHING;
-
--- --- Ventas ---
-INSERT INTO sym_trigger
-    (trigger_id, source_table_name, channel_id,
-     sync_on_incoming_batch, last_update_time, create_time)
-VALUES
-    ('trig_sale_order', 'sale_order', 'sale',
-     1, current_timestamp, current_timestamp),
-    ('trig_sale_order_line', 'sale_order_line', 'sale',
-     1, current_timestamp, current_timestamp)
-ON CONFLICT (trigger_id) DO NOTHING;
-
--- --- Compras ---
-INSERT INTO sym_trigger
-    (trigger_id, source_table_name, channel_id,
-     sync_on_incoming_batch, last_update_time, create_time)
-VALUES
-    ('trig_purchase_order', 'purchase_order', 'purchase',
-     1, current_timestamp, current_timestamp),
-    ('trig_purchase_order_line', 'purchase_order_line', 'purchase',
-     1, current_timestamp, current_timestamp)
-ON CONFLICT (trigger_id) DO NOTHING;
-
--- --- Configuración compartida ---
-INSERT INTO sym_trigger
-    (trigger_id, source_table_name, channel_id,
-     sync_on_incoming_batch, last_update_time, create_time)
-VALUES
-    ('trig_res_currency', 'res_currency', 'config',
-     1, current_timestamp, current_timestamp),
-    ('trig_res_currency_rate', 'res_currency_rate', 'config',
-     1, current_timestamp, current_timestamp),
-    ('trig_account_tax', 'account_tax', 'config',
-     1, current_timestamp, current_timestamp),
-    ('trig_res_company', 'res_company', 'config',
-     1, current_timestamp, current_timestamp)
+    ('trig_res_users', 'public', 'res_users', 'security', 1,
+     current_timestamp, current_timestamp,
+     'Usuarios Odoo desde central hacia turistica'),
+    ('trig_res_groups', 'public', 'res_groups', 'security', 1,
+     current_timestamp, current_timestamp,
+     'Grupos de seguridad desde central hacia turistica'),
+    ('trig_res_groups_users_rel', 'public', 'res_groups_users_rel', 'security', 1,
+     current_timestamp, current_timestamp,
+     'Relación usuario-grupo desde central hacia turistica'),
+    ('trig_ir_model_access', 'public', 'ir_model_access', 'security', 1,
+     current_timestamp, current_timestamp,
+     'ACLs de modelos desde central hacia turistica'),
+    ('trig_ir_rule', 'public', 'ir_rule', 'security', 1,
+     current_timestamp, current_timestamp,
+     'Reglas de registros desde central hacia turistica'),
+    ('trig_rule_group_rel', 'public', 'rule_group_rel', 'security', 1,
+     current_timestamp, current_timestamp,
+     'Relación entre reglas y grupos desde central hacia turistica')
 ON CONFLICT (trigger_id) DO NOTHING;
 
 -- =========================
 -- 6. TRIGGER-ROUTER LINKS
 -- =========================
--- Vincular cada trigger con ambos routers (bidireccional)
+-- Vincular cada trigger con ambos routers (bidireccional), excepto
+-- seguridad/usuarios que solo deben viajar de central hacia turistica.
 
 -- Macro: crear links para todos los triggers existentes
 DO $$
@@ -205,13 +156,22 @@ BEGIN
         ON CONFLICT DO NOTHING;
 
         -- Turística → Central
-        INSERT INTO sym_trigger_router
-            (trigger_id, router_id, initial_load_order,
-             create_time, last_update_time)
-        VALUES
-            (trig.trigger_id, 'turistica_to_central', load_order,
-             current_timestamp, current_timestamp)
-        ON CONFLICT DO NOTHING;
+        IF trig.trigger_id NOT IN (
+            'trig_res_users',
+            'trig_res_groups',
+            'trig_res_groups_users_rel',
+            'trig_ir_model_access',
+            'trig_ir_rule',
+            'trig_rule_group_rel'
+        ) THEN
+            INSERT INTO sym_trigger_router
+                (trigger_id, router_id, initial_load_order,
+                 create_time, last_update_time)
+            VALUES
+                (trig.trigger_id, 'turistica_to_central', load_order,
+                 current_timestamp, current_timestamp)
+            ON CONFLICT DO NOTHING;
+        END IF;
 
         load_order := load_order + 10;
     END LOOP;

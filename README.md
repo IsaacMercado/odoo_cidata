@@ -53,6 +53,10 @@ cd odoo_cida
 > No uses **ephemeral auth keys** en la sede central o turística.
 > Los nodos efímeros cambian IP al recrearse y se eliminan tras inactividad,
 > lo que rompe `registration.url`, `sync.url` y la resolución por nombre en Tailscale.
+>
+> El stack persiste el estado de Tailscale en un volumen y usa `TS_AUTH_ONCE=true`.
+> Eso permite conservar la identidad del nodo entre reinicios y evita reautenticarse
+> en cada arranque aunque el secreto `ts_authkey` siga montado.
 
 ### 3. Ejecutar setup
 
@@ -123,6 +127,19 @@ docker exec symmetricds-central-001 curl -s http://127.0.0.1:31415/api/engine/st
 ```
 *(Nota: usa `podman exec` si utilizas Podman)*
 
+### Aplicar cambios de topología de SymmetricDS
+
+Si ya levantaste la sede central antes de cambiar `config/symmetricds/init-central.sql`,
+debes volver a cargar ese SQL y reiniciar SymmetricDS para que nuevas reglas como la
+sincronización unidireccional de usuarios entren en vigor.
+
+```bash
+docker exec -i postgres-central-001 psql -U odoo -d odoo < config/symmetricds/init-central.sql
+docker restart symmetricds-central-001
+```
+
+*(Nota: usa `podman exec` y `podman restart` si utilizas Podman)*
+
 ### Restaurar un backup
 
 ```bash
@@ -142,8 +159,9 @@ docker compose start odoo
 1. **IDs Separados**: Central usa IDs 1-100M, Turística usa 100M+1 a 200M
 2. **Módulos**: Solo se instalan desde la sede CENTRAL
 3. **Conflictos**: En caso de conflicto, la sede central tiene prioridad
-4. **Datos sincronizados**: Contactos, productos, inventario, POS, ventas, compras
-5. **Datos NO sincronizados**: Configuración interna de Odoo, crons, vistas, módulos
+4. **Datos sincronizados**: Contactos, productos, inventario, POS, ventas, compras, usuarios, grupos y permisos
+5. **Administración de usuarios**: Se hace solo en la sede CENTRAL y se replica en una sola dirección hacia la sede turística
+6. **Datos NO sincronizados**: Configuración interna de Odoo, crons, vistas, módulos, sesiones/dispositivos locales de autenticación
 
 ## Seguridad
 
@@ -248,6 +266,36 @@ docker exec tailscale-central-001 tailscale status
 # Re-autenticar si es necesario
 docker exec tailscale-central-001 tailscale up --authkey=tskey-auth-XXX
 ```
+
+### Tailscale crea nodos duplicados (`odoo-central-001-2`, `-3`, ...)
+
+Esto suele pasar cuando el contenedor arranca autenticándose de nuevo sin reutilizar
+el estado persistido.
+
+Verifica primero que:
+
+1. El volumen `cida-tailscale-<NODE_ID>` exista y no se haya borrado.
+2. El servicio `tailscale` esté usando `TS_STATE_DIR=/var/lib/tailscale`.
+3. El servicio `tailscale` tenga `TS_AUTH_ONCE=true`.
+4. La auth key sea `reusable` y `non-ephemeral`.
+
+Si necesitas forzar una identidad nueva de forma intencional:
+
+```bash
+# Detener el stack
+docker compose down
+
+# Borrar solo el estado persistido de Tailscale
+docker volume rm cida-tailscale-central-001
+
+# Volver a levantar
+docker compose up -d
+```
+
+Después elimina en la consola de Tailscale los nodos viejos con sufijos `-2`, `-3`, etc.
+
+> No borres el volumen de estado como paso rutinario de troubleshooting.
+> Si el volumen existe y `TS_AUTH_ONCE=true`, el nodo debería conservar su identidad.
 
 ## Advertencias
 
