@@ -261,6 +261,7 @@ if ! $CONTAINER_CMD secret inspect ts_authkey &>/dev/null; then
     echo ""
     info "Tailscale requiere un Auth Key para conectar a la VPN."
     info "Genera uno en: https://login.tailscale.com/admin/settings/keys"
+    info "Para sedes fijas usa una key reusable, pre-approved y NO ephemeral."
     echo ""
     read -s -p "Pega tu Tailscale Auth Key (no se mostrará): " TS_KEY
     echo ""

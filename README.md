@@ -47,7 +47,12 @@ cd odoo_cida
 
 1. Crear cuenta en [tailscale.com](https://tailscale.com)
 2. Ir a **Settings → Keys → Generate auth key**
-3. Generar un key **reusable** (para ambas máquinas)
+3. Generar un key **reusable** y **NO ephemeral** para servidores fijos
+4. Si es posible, marcarlo como **pre-approved** para evitar alta manual
+
+> No uses **ephemeral auth keys** en la sede central o turística.
+> Los nodos efímeros cambian IP al recrearse y se eliminan tras inactividad,
+> lo que rompe `registration.url`, `sync.url` y la resolución por nombre en Tailscale.
 
 ### 3. Ejecutar setup
 
