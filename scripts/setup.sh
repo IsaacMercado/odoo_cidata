@@ -35,6 +35,33 @@ warn()  { echo -e "${YELLOW}[!]${NC} $1"; }
 error() { echo -e "${RED}[✗]${NC} $1"; exit 1; }
 info()  { echo -e "${BLUE}[i]${NC} $1"; }
 
+set_env_var() {
+    local KEY="$1"
+    local VALUE="$2"
+
+    if grep -q "^${KEY}=" .env; then
+        sed -i "s|^${KEY}=.*|${KEY}=${VALUE}|" .env
+    else
+        printf '%s=%s\n' "$KEY" "$VALUE" >> .env
+    fi
+}
+
+apply_role_env() {
+    if [[ "$ROLE" == "central" ]]; then
+        set_env_var "NODE_ROLE" "central"
+        set_env_var "NODE_ID" "central-001"
+        set_env_var "REMOTE_NODE_ID" "turistica-001"
+        set_env_var "SEQUENCE_START" "1"
+        set_env_var "SEQUENCE_END" "100000000"
+    else
+        set_env_var "NODE_ROLE" "turistica"
+        set_env_var "NODE_ID" "turistica-001"
+        set_env_var "REMOTE_NODE_ID" "central-001"
+        set_env_var "SEQUENCE_START" "100000001"
+        set_env_var "SEQUENCE_END" "200000000"
+    fi
+}
+
 dump_startup_diagnostics() {
     warn "Diagnóstico de arranque"
     $COMPOSE_CMD ps || true
@@ -163,24 +190,12 @@ fi
 if [[ ! -f .env ]]; then
     info "Creando .env desde template..."
     cp .env.example .env
-
-    if [[ "$ROLE" == "central" ]]; then
-        sed -i 's/NODE_ROLE=central/NODE_ROLE=central/' .env
-        sed -i 's/NODE_ID=central-001/NODE_ID=central-001/' .env
-        sed -i 's/REMOTE_NODE_ID=turistica-001/REMOTE_NODE_ID=turistica-001/' .env
-        sed -i 's/SEQUENCE_START=1/SEQUENCE_START=1/' .env
-        sed -i 's/SEQUENCE_END=100000000/SEQUENCE_END=100000000/' .env
-    else
-        sed -i 's/NODE_ROLE=central/NODE_ROLE=turistica/' .env
-        sed -i 's/NODE_ID=central-001/NODE_ID=turistica-001/' .env
-        sed -i 's/REMOTE_NODE_ID=turistica-001/REMOTE_NODE_ID=central-001/' .env
-        sed -i 's/SEQUENCE_START=1/SEQUENCE_START=100000001/' .env
-        sed -i 's/SEQUENCE_END=100000000/SEQUENCE_END=200000000/' .env
-    fi
-
+    apply_role_env
     log ".env creado (sin contraseñas — están en $CONTAINER_CMD secret)"
 else
-    log ".env ya existe, usando configuración existente"
+    info ".env ya existe, actualizando variables específicas para la sede ${ROLE^^}"
+    apply_role_env
+    log ".env actualizado para la sede ${ROLE^^}"
 fi
 
 # Cargar variables
