@@ -36,12 +36,15 @@ services:
     entrypoint: [ "/bin/sh", "-c" ]
     command:
       - |
-        apk add --no-cache socat
         export TS_AUTHKEY=$$(cat /run/secrets/ts_authkey)
         /usr/local/bin/containerboot &
         until tailscale ip -4 > /dev/null 2>&1; do sleep 2; done
-        # Forward sync port (31415) to SymmetricDS on the bridge
-        socat TCP-LISTEN:31415,fork,reuseaddr TCP:symmetricds:31415 &
+        # Forward sync port (31415) to SymmetricDS on the bridge without
+        # downloading extra packages at boot time.
+        while true; do
+          nc -lk -p 31415 -e /bin/sh -c 'nc symmetricds 31415' || true
+          sleep 1
+        done &
         echo "Tailscale up. Forwarding 31415 -> symmetricds:31415"
         wait
     volumes:
