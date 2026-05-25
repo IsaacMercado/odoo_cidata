@@ -87,7 +87,7 @@ initialize_odoo_if_needed() {
     $CONTAINER_CMD exec "odoo-${NODE_ID}" sh -c '
         PASSWORD=$(cat /run/secrets/pg_password)
         exec /usr/bin/odoo --config /etc/odoo/odoo.conf \
-          --db_host=127.0.0.1 \
+          --db_host=postgres \
           --db_port=5432 \
           --db_user='"$POSTGRES_USER"' \
           --db_password="$PASSWORD" \
@@ -188,9 +188,16 @@ source .env
 
 # Compatibilidad con .env existentes creados antes de introducir
 # puertos host configurables para entornos rootless.
+if ! grep -q '^HOST_BIND_IP=' .env; then
+    printf '\nHOST_BIND_IP=0.0.0.0\n' >> .env
+fi
+
+source .env
+
 HOST_HTTP_PORT="${HOST_HTTP_PORT:-8080}"
 HOST_HTTPS_PORT="${HOST_HTTPS_PORT:-8443}"
 HOST_ODOO_PORT="${HOST_ODOO_PORT:-8069}"
+HOST_BIND_IP="${HOST_BIND_IP:-0.0.0.0}"
 
 # ==============================================================
 # 3. CREAR SECRETOS CIFRADOS
@@ -328,6 +335,9 @@ echo ""
 echo " Sede:      ${ROLE^^}"
 echo " Nodo:      ${NODE_ID}"
 echo " Odoo:      http://localhost:${HOST_HTTP_PORT}"
+if [[ "$HOST_BIND_IP" != "127.0.0.1" ]]; then
+    echo " LAN:       http://<ip-del-servidor>:${HOST_HTTP_PORT}"
+fi
 echo ""
 echo " 🔒 SEGURIDAD:"
 echo "   - Contraseñas cifradas en $CONTAINER_CMD secret"

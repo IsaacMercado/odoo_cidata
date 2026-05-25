@@ -226,7 +226,7 @@ END $$;
 
 INSERT INTO sym_conflict
     (conflict_id, source_node_group_id, target_node_group_id,
-     target_channel_id, detect_type, resolve_type,
+     target_channel_id, detect_type, resolve_type, ping_back,
      create_time, last_update_time)
 VALUES
     -- Cuando turística envía datos que conflictúan con central
@@ -235,6 +235,7 @@ VALUES
      'default',
      'USE_CHANGED_DATA',    -- Detectar con datos cambiados
      'MANUAL',              -- Requiere revisión manual
+     'OFF',
      current_timestamp, current_timestamp),
     -- Cuando central envía datos, central siempre gana
     ('conflict_central_to_turistica',
@@ -242,6 +243,7 @@ VALUES
      'default',
      'USE_CHANGED_DATA',
      'NEWER_WINS',          -- El más reciente gana (central)
+     'OFF',
      current_timestamp, current_timestamp)
 ON CONFLICT (conflict_id) DO NOTHING;
 
