@@ -11,9 +11,10 @@
 # ARQUITECTURA DE RED:
 #   Todos los servicios en una bridge interna (`cida-net`).
 #   Cada servicio publica sus propios puertos al host.
-#   Tailscale corre como sidecar en la misma bridge, con
-#   socat forwarding del puerto de sync (31415) a SymmetricDS.
-#   Esto evita el bloqueo de rootlessport de Podman rootless.
+#   Tailscale corre como sidecar y SymmetricDS comparte su
+#   namespace de red. El sidecar publica/acepta el tráfico
+#   tailnet y reenvía 31415 a 127.0.0.1:31415, donde escucha
+#   SymmetricDS en el mismo namespace.
 #
 # ⚠️  Las contraseñas NO están en .env.
 #     Se gestionan via secrets cifrados.
@@ -40,13 +41,13 @@ services:
         export TS_AUTHKEY=$$(cat /run/secrets/ts_authkey)
         /usr/local/bin/containerboot &
         until tailscale ip -4 > /dev/null 2>&1; do sleep 2; done
-        # Forward sync port (31415) to SymmetricDS on the bridge without
-        # downloading extra packages at boot time.
+        # Forward sync port (31415) to SymmetricDS in the shared network
+        # namespace without downloading extra packages at boot time.
         while true; do
-          nc -lk -p 31415 -e /bin/sh -c 'nc symmetricds 31415' || true
+          nc -lk -p 31415 -e /bin/sh -c 'nc 127.0.0.1 31415' || true
           sleep 1
         done &
-        echo "Tailscale up. Forwarding 31415 -> symmetricds:31415"
+        echo "Tailscale up. Forwarding 31415 -> 127.0.0.1:31415"
         wait
     volumes:
       - tailscale-state:/var/lib/tailscale
@@ -153,6 +154,7 @@ services:
   symmetricds:
     image: docker.io/jumpmind/symmetricds:latest
     container_name: symmetricds-${NODE_ID}
+    network_mode: "service:tailscale"
     secrets:
       - pg_password
     volumes:
@@ -170,9 +172,8 @@ services:
           /opt/symmetric-ds/engines/node.properties.template \
           > /opt/symmetric-ds/engines/node.properties
         exec /opt/symmetric-ds/bin/sym
-    networks:
-      - cida-net
     depends_on:
+      - tailscale
       - postgres
     restart: unless-stopped
     healthcheck:

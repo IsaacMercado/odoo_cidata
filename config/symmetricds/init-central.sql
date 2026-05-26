@@ -170,13 +170,15 @@ BEGIN
                 WHERE trigger_id LIKE 'trig_%'
     LOOP
         -- Central → Turística
-        INSERT INTO sym_trigger_router
-            (trigger_id, router_id, initial_load_order,
-             create_time, last_update_time)
-        VALUES
-            (trig.trigger_id, 'central_to_turistica', load_order,
-             current_timestamp, current_timestamp)
-        ON CONFLICT DO NOTHING;
+        IF trig.trigger_id <> 'trig_res_partner_non_user' THEN
+            INSERT INTO sym_trigger_router
+                (trigger_id, router_id, initial_load_order,
+                 create_time, last_update_time)
+            VALUES
+                (trig.trigger_id, 'central_to_turistica', load_order,
+                 current_timestamp, current_timestamp)
+            ON CONFLICT DO NOTHING;
+        END IF;
 
         -- Turística → Central
         IF trig.trigger_id NOT IN (

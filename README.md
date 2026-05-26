@@ -57,6 +57,10 @@ cd odoo_cida
 > El stack persiste el estado de Tailscale en un volumen y usa `TS_AUTH_ONCE=true`.
 > Eso permite conservar la identidad del nodo entre reinicios y evita reautenticarse
 > en cada arranque aunque el secreto `ts_authkey` siga montado.
+>
+> `SymmetricDS` comparte el namespace de red del contenedor `tailscale`.
+> Esto es intencional: SymmetricDS necesita salida real hacia la tailnet para
+> poder empujar batches al nodo remoto, no solo recibir tráfico reenviado.
 
 ### 3. Ejecutar setup
 
