@@ -32,6 +32,7 @@ services:
     environment:
       - TS_STATE_DIR=/var/lib/tailscale
       - TS_AUTH_ONCE=true
+      - TS_USERSPACE=false
       - TS_EXTRA_ARGS=--hostname=odoo-${NODE_ID} --accept-routes
     secrets:
       - ts_authkey
