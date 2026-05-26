@@ -45,14 +45,23 @@ VALUES
 ON CONFLICT (node_group_id) DO NOTHING;
 
 -- =========================
--- 3. ENLACES (bidireccional con Push)
+-- 3. ENLACES (central espera pull; turistica hace push)
 -- =========================
 INSERT INTO sym_node_group_link
     (source_node_group_id, target_node_group_id, data_event_action)
 VALUES
-    ('central',   'turistica', 'P'),
+    ('central',   'turistica', 'W'),
     ('turistica', 'central',   'P')
 ON CONFLICT DO NOTHING;
+
+UPDATE sym_node_group_link
+   SET data_event_action = CASE
+       WHEN source_node_group_id = 'central' AND target_node_group_id = 'turistica' THEN 'W'
+       WHEN source_node_group_id = 'turistica' AND target_node_group_id = 'central' THEN 'P'
+       ELSE data_event_action
+   END
+ WHERE (source_node_group_id = 'central' AND target_node_group_id = 'turistica')
+    OR (source_node_group_id = 'turistica' AND target_node_group_id = 'central');
 
 -- =========================
 -- 4. ROUTERS
@@ -170,7 +179,10 @@ BEGIN
                 WHERE trigger_id LIKE 'trig_%'
     LOOP
         -- Central → Turística
-        IF trig.trigger_id <> 'trig_res_partner_non_user' THEN
+        IF trig.trigger_id NOT IN (
+            'trig_res_partner_non_user',
+            'trig_res_partner_user_profile'
+        ) THEN
             INSERT INTO sym_trigger_router
                 (trigger_id, router_id, initial_load_order,
                  create_time, last_update_time)
@@ -214,6 +226,22 @@ VALUES
     ('trig_res_partner_user_profile', 'central_to_turistica', 96,
      current_timestamp, current_timestamp)
 ON CONFLICT DO NOTHING;
+
+UPDATE sym_trigger_router
+   SET initial_load_order = CASE
+       WHEN trigger_id = 'trig_res_partner_non_user' AND router_id IN (
+           'central_to_turistica_non_user_partners',
+           'turistica_to_central_non_user_partners'
+       ) THEN 95
+       WHEN trigger_id = 'trig_res_partner_user_profile' AND router_id = 'central_to_turistica' THEN 96
+       ELSE initial_load_order
+   END,
+       last_update_time = current_timestamp
+ WHERE (trigger_id = 'trig_res_partner_non_user' AND router_id IN (
+           'central_to_turistica_non_user_partners',
+           'turistica_to_central_non_user_partners'
+       ))
+    OR (trigger_id = 'trig_res_partner_user_profile' AND router_id = 'central_to_turistica');
 
 -- =========================
 -- 7. RESOLUCIÓN DE CONFLICTOS
