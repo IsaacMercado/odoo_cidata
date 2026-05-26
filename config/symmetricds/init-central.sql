@@ -63,9 +63,19 @@ INSERT INTO sym_router
 VALUES
     ('central_to_turistica', 'central', 'turistica', 'default',
      current_timestamp, current_timestamp),
+    ('central_to_turistica_non_user_partners', 'central', 'turistica', 'subselect',
+     current_timestamp, current_timestamp),
     ('turistica_to_central', 'turistica', 'central', 'default',
+     current_timestamp, current_timestamp),
+    ('turistica_to_central_non_user_partners', 'turistica', 'central', 'subselect',
      current_timestamp, current_timestamp)
 ON CONFLICT (router_id) DO NOTHING;
+
+UPDATE sym_router
+   SET router_type = 'subselect',
+       router_expression = 'not exists (select 1 from res_users u where u.partner_id = :ID)',
+       last_update_time = current_timestamp
+ WHERE router_id IN ('central_to_turistica_non_user_partners', 'turistica_to_central_non_user_partners');
 
 -- =========================
 -- 5. TRIGGERS — Tablas a sincronizar
@@ -82,6 +92,7 @@ ON CONFLICT (router_id) DO NOTHING;
 --   - bus_*        : websocket/presencia/eventos en tiempo real
 --   - auth_*       : autenticación local (TOTP, passkeys, etc.)
 --   - res_users*   : se sincroniza de forma explícita y unidireccional desde central
+--   - res_partner  : se maneja por triggers explícitos para separar partners de usuarios
 --   - res_device*  : dispositivos/sesiones locales
 --   - ir_attachment: requiere estrategia separada de filestore
 --   - base_import_*, iap_*, fetchmail_*, queue_job* : tablas técnicas/servicio
@@ -97,12 +108,24 @@ INSERT INTO sym_trigger
 VALUES
     ('trig_odoo_operational',
      'public',
-     '*,!sym_*,!ir_*,!mail_*,!bus_*,!auth_*,!res_users*,!res_device*,!ir_attachment,!base_import_*,!iap_*,!fetchmail_*,!queue_job*,!pos_session,!*_wizard*',
+     '*,!sym_*,!ir_*,!mail_*,!bus_*,!auth_*,!res_users*,!res_partner,!res_device*,!ir_attachment,!base_import_*,!iap_*,!fetchmail_*,!queue_job*,!pos_session,!*_wizard*',
      'default',
      1,
      current_timestamp,
      current_timestamp,
-     'Wildcard para tablas operativas de Odoo con exclusión de tablas técnicas/locales')
+      'Wildcard para tablas operativas de Odoo con exclusión de tablas técnicas/locales')
+ON CONFLICT (trigger_id) DO NOTHING;
+
+INSERT INTO sym_trigger
+    (trigger_id, source_schema_name, source_table_name, channel_id,
+     sync_on_incoming_batch, last_update_time, create_time, description)
+VALUES
+    ('trig_res_partner_non_user', 'public', 'res_partner', 'partner', 1,
+     current_timestamp, current_timestamp,
+     'Partners operativos sin usuario asociado, bidireccional'),
+    ('trig_res_partner_user_profile', 'public', 'res_partner', 'security', 1,
+     current_timestamp, current_timestamp,
+     'Partners ligados a usuarios, solo desde central hacia turistica')
 ON CONFLICT (trigger_id) DO NOTHING;
 
 -- Usuarios, grupos y permisos se sincronizan por una vía separada.
@@ -162,7 +185,9 @@ BEGIN
             'trig_res_groups_users_rel',
             'trig_ir_model_access',
             'trig_ir_rule',
-            'trig_rule_group_rel'
+            'trig_rule_group_rel',
+            'trig_res_partner_non_user',
+            'trig_res_partner_user_profile'
         ) THEN
             INSERT INTO sym_trigger_router
                 (trigger_id, router_id, initial_load_order,
@@ -176,6 +201,17 @@ BEGIN
         load_order := load_order + 10;
     END LOOP;
 END $$;
+
+INSERT INTO sym_trigger_router
+    (trigger_id, router_id, initial_load_order, create_time, last_update_time)
+VALUES
+    ('trig_res_partner_non_user', 'central_to_turistica_non_user_partners', 95,
+     current_timestamp, current_timestamp),
+    ('trig_res_partner_non_user', 'turistica_to_central_non_user_partners', 95,
+     current_timestamp, current_timestamp),
+    ('trig_res_partner_user_profile', 'central_to_turistica', 96,
+     current_timestamp, current_timestamp)
+ON CONFLICT DO NOTHING;
 
 -- =========================
 -- 7. RESOLUCIÓN DE CONFLICTOS

@@ -161,7 +161,8 @@ docker compose start odoo
 3. **Conflictos**: En caso de conflicto, la sede central tiene prioridad
 4. **Datos sincronizados**: Contactos, productos, inventario, POS, ventas, compras, usuarios, grupos y permisos
 5. **Administración de usuarios**: Se hace solo en la sede CENTRAL y se replica en una sola dirección hacia la sede turística
-6. **Datos NO sincronizados**: Configuración interna de Odoo, crons, vistas, módulos, sesiones/dispositivos locales de autenticación
+6. **Perfiles de usuario (`res_partner`)**: Los partners asociados a usuarios se tratan como datos de seguridad y solo viajan desde CENTRAL hacia turística; los partners operativos sin usuario asociado siguen bidireccionales
+7. **Datos NO sincronizados**: Configuración interna de Odoo, crons, vistas, módulos, sesiones/dispositivos locales de autenticación
 
 ## Seguridad
 
