@@ -39,16 +39,7 @@ services:
     command:
       - |
         export TS_AUTHKEY=$$(cat /run/secrets/ts_authkey)
-        /usr/local/bin/containerboot &
-        until tailscale ip -4 > /dev/null 2>&1; do sleep 2; done
-        # Forward sync port (31415) to SymmetricDS in the shared network
-        # namespace without downloading extra packages at boot time.
-        while true; do
-          nc -lk -p 31415 -e /bin/sh -c 'nc 127.0.0.1 31415' || true
-          sleep 1
-        done &
-        echo "Tailscale up. Forwarding 31415 -> 127.0.0.1:31415"
-        wait
+        exec /usr/local/bin/containerboot
     volumes:
       - tailscale-state:/var/lib/tailscale
     cap_add:
