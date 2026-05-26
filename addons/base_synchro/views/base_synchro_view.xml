@@ -1,0 +1,307 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <!-- ================================================== -->
+    <!-- Server Configuration                                -->
+    <!-- ================================================== -->
+    <record id="view_base_synchro_server_form" model="ir.ui.view">
+        <field name="name">base.synchro.server.form</field>
+        <field name="model">base.synchro.server</field>
+        <field name="arch" type="xml">
+            <form string="Servidor sincronizado">
+                <header>
+                    <button name="action_test_connection"
+                            string="Probar Conexión"
+                            type="object"
+                            class="btn-primary"
+                            invisible="state == 'connected'"/>
+                    <button name="action_test_connection"
+                            string="Re-probar Conexión"
+                            type="object"
+                            invisible="state != 'connected'"/>
+                    <button name="action_sync_now"
+                            string="Sincronizar Ahora"
+                            type="object"
+                            class="btn-success"
+                            invisible="state != 'connected'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,connected"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="Nombre del servidor"/></h1>
+                    </div>
+                    <group>
+                        <group string="Conexión Remota">
+                            <field name="server_url"/>
+                            <field name="server_port"/>
+                            <field name="server_db"/>
+                            <field name="login"/>
+                            <field name="password" password="True"/>
+                        </group>
+                        <group string="Configuración">
+                            <field name="node_role"/>
+                            <field name="conflict_resolution"/>
+                            <field name="sync_interval_minutes"/>
+                            <field name="active"/>
+                        </group>
+                    </group>
+                    <group>
+                        <group string="Estadísticas">
+                            <field name="last_sync_date"/>
+                            <field name="total_synced"/>
+                            <field name="total_errors"/>
+                        </group>
+                        <group string="Último Error" invisible="not last_error">
+                            <field name="last_error" nolabel="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Modelos a Sincronizar" name="models">
+                            <button name="action_generate_rules_from_module"
+                                    string="Generar reglas del módulo"
+                                    type="object"
+                                    class="btn-secondary"
+                                    help="Crea reglas para todos los modelos de los módulos asignados a las reglas existentes"/>
+                            <field name="obj_ids">
+                                <list editable="bottom">
+                                    <field name="sequence"/>
+                                    <field name="model_id"/>
+                                    <field name="action"/>
+                                    <field name="module_id"/>
+                                    <field name="match_field"/>
+                                    <field name="batch_size"/>
+                                    <field name="synchronize_date"/>
+                                    <field name="active"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Historial" name="logs">
+                            <button name="action_view_logs"
+                                    string="Ver Historial Completo"
+                                    type="object"
+                                    class="btn-link"/>
+                            <field name="log_ids" readonly="1" limit="20">
+                                <list decoration-success="state == 'done'"
+                                      decoration-danger="state == 'error'">
+                                    <field name="create_date"/>
+                                    <field name="operation"/>
+                                    <field name="model_name"/>
+                                    <field name="state" widget="badge"/>
+                                    <field name="records_sent"/>
+                                    <field name="records_received"/>
+                                    <field name="duration_seconds" widget="float_time"/>
+                                    <field name="error_message"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_base_synchro_server_tree" model="ir.ui.view">
+        <field name="name">base.synchro.server.tree</field>
+        <field name="model">base.synchro.server</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="server_url"/>
+                <field name="server_port"/>
+                <field name="server_db"/>
+                <field name="node_role"/>
+                <field name="state" widget="badge"
+                       decoration-success="state == 'connected'"
+                       decoration-danger="state == 'error'"/>
+                <field name="last_sync_date"/>
+                <field name="total_synced"/>
+                <field name="total_errors"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_base_synchro_server_tree" model="ir.actions.act_window">
+        <field name="name">Servidores a sincronizar</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">base.synchro.server</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ================================================== -->
+    <!-- Sync Rule (base.synchro.obj)                        -->
+    <!-- ================================================== -->
+    <record id="base_synchro_obj_form" model="ir.ui.view">
+        <field name="name">base.synchro.obj.form</field>
+        <field name="model">base.synchro.obj</field>
+        <field name="arch" type="xml">
+            <form string="Regla de sincronización">
+                <sheet>
+                    <group col="4">
+                        <field name="name"/>
+                        <field name="active"/>
+                        <field name="server_id"/>
+                        <field name="model_id" required="1"/>
+                        <field name="action"/>
+                        <field name="sequence"/>
+                        <field name="module_id"/>
+                        <field name="match_field"/>
+                        <field name="batch_size"/>
+                        <field name="domain" colspan="4"/>
+                        <field name="synchronize_date"/>
+                    </group>
+                    <separator string="Campos a Excluir"/>
+                    <field name="avoid_ids">
+                        <list string="Fields" editable="bottom">
+                            <field name="name"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="base_synchro_obj_tree" model="ir.ui.view">
+        <field name="name">base.synchro.obj.tree</field>
+        <field name="model">base.synchro.obj</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence"/>
+                <field name="name"/>
+                <field name="model_id"/>
+                <field name="server_id"/>
+                <field name="action"/>
+                <field name="match_field"/>
+                <field name="synchronize_date"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ir_filters_regclass_tree" model="ir.ui.view">
+        <field name="name">base.synchro.obj.search</field>
+        <field name="model">base.synchro.obj</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="model_id" filter_domain="[('model_id', '=', self)]" string="Modelo"/>
+                <field name="synchronize_date" filter_domain="[('synchronize_date', '=', self)]" string="Última Sync"/>
+                <group>
+                    <filter string="Object to synchronize" name="grp_model"
+                            context="{'group_by':'model_id'}"/>
+                    <filter string="Latest synchronization" name="grp_sync_date"
+                            context="{'group_by':'synchronize_date'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="actions_regclass_tree" model="ir.actions.act_window">
+        <field name="name">Filters</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">base.synchro.obj</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="base_synchro_obj_tree"/>
+        <field name="search_view_id" ref="ir_filters_regclass_tree"/>
+    </record>
+
+    <record id="action_transfer_tree" model="ir.actions.act_window">
+        <field name="name">Modelos sincronizados</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">base.synchro.obj</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ================================================== -->
+    <!-- Sync Mapping Lines (base.synchro.obj.line)          -->
+    <!-- ================================================== -->
+    <record id="view_transfer_line_form" model="ir.ui.view">
+        <field name="name">base.synchro.obj.line.form</field>
+        <field name="model">base.synchro.obj.line</field>
+        <field name="arch" type="xml">
+            <form string="Mapeo sincronizado" create="false" edit="false">
+                <sheet>
+                    <group col="4">
+                        <field name="name"/>
+                        <field name="obj_id"/>
+                        <field name="local_id"/>
+                        <field name="remote_id"/>
+                        <field name="uuid"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_transfer_line_tree" model="ir.ui.view">
+        <field name="name">base.synchro.obj.line.tree</field>
+        <field name="model">base.synchro.obj.line</field>
+        <field name="arch" type="xml">
+            <list string="Instancias sincronizadas" create="false" edit="false">
+                <field name="name"/>
+                <field name="obj_id"/>
+                <field name="local_id"/>
+                <field name="remote_id"/>
+                <field name="uuid"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="ir_filters_transfer_line_form" model="ir.ui.view">
+        <field name="name">base.synchro.obj.line.search</field>
+        <field name="model">base.synchro.obj.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name" filter_domain="[('name', '=', self)]" string="Fecha"/>
+                <field name="obj_id" filter_domain="[('obj_id', '=', self)]" string="Objeto"/>
+                <group>
+                    <filter string="Object" name="grp_obj"
+                            context="{'group_by':'obj_id'}"/>
+                    <filter string="Date" name="grp_date"
+                            context="{'group_by':'name'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="actions_transfer_line_form" model="ir.actions.act_window">
+        <field name="name">Filters</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">base.synchro.obj.line</field>
+        <field name="view_mode">list,form</field>
+        <field name="view_id" ref="view_transfer_line_tree"/>
+        <field name="search_view_id" ref="ir_filters_transfer_line_form"/>
+    </record>
+
+    <record id="action_base_synchro_obj_line_tree" model="ir.actions.act_window">
+        <field name="name">Instancias sincronizadas</field>
+        <field name="type">ir.actions.act_window</field>
+        <field name="res_model">base.synchro.obj.line</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+    <!-- ================================================== -->
+    <!-- Menu                                                -->
+    <!-- ================================================== -->
+    <menuitem id="next_id_62" name="Sincronización"
+              parent="base.menu_administration"/>
+
+    <menuitem action="action_base_synchro_server_tree"
+              id="synchro_server_tree_menu_id"
+              parent="base_synchro.next_id_62"
+              sequence="1"/>
+
+    <menuitem id="next_id_63" name="Historial"
+              groups="base.group_no_one"
+              parent="base_synchro.next_id_62"
+              sequence="10"/>
+
+    <menuitem action="action_transfer_tree"
+              id="transfer_menu_id"
+              parent="base_synchro.next_id_63"
+              sequence="1"/>
+
+    <menuitem action="action_base_synchro_obj_line_tree"
+              id="menu_action_base_synchro_obj_line_tree"
+              parent="base_synchro.next_id_63"
+              sequence="2"/>
+
+</odoo>

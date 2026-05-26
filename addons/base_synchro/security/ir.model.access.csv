@@ -1,0 +1,11 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+base_synchro_server,base.synchro.server,model_base_synchro_server,base.group_system,1,1,1,1
+base_synchro_obj,base.synchro.obj,model_base_synchro_obj,base.group_system,1,1,1,1
+base_synchro_obj_avoid,base.synchro.obj.avoid,model_base_synchro_obj_avoid,base.group_system,1,1,1,1
+base_synchro_obj_line,base.synchro.obj.line,model_base_synchro_obj_line,base.group_system,1,1,1,1
+base_synchro_res_request,synchro.res.request,model_res_request,base.group_system,1,1,1,1
+base_synchro,base.synchro,model_base_synchro,base.group_system,1,1,1,1
+base_synchro_log_manager,base.synchro.log manager,model_base_synchro_log,base.group_system,1,1,1,1
+base_synchro_log_user,base.synchro.log user,model_base_synchro_log,base.group_user,1,0,0,0
+base_synchro_uuid,base.synchro.uuid,model_base_synchro_uuid,base.group_system,1,1,1,1
+base_synchro_engine,base.synchro.engine,model_base_synchro_engine,base.group_system,1,1,1,1

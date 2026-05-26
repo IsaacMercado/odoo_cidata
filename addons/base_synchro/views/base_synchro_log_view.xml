@@ -1,38 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
 
-    <!-- ================================================== -->
-    <!-- Log de Sincronización — Lista                      -->
-    <!-- ================================================== -->
-    <record id="view_cida_sync_log_tree" model="ir.ui.view">
-        <field name="name">cida.sync.log.tree</field>
-        <field name="model">cida.sync.log</field>
+    <record id="view_base_synchro_log_tree" model="ir.ui.view">
+        <field name="name">base.synchro.log.tree</field>
+        <field name="model">base.synchro.log</field>
         <field name="arch" type="xml">
-            <tree decoration-success="state == 'done'"
+            <list decoration-success="state == 'done'"
                   decoration-danger="state == 'error'"
-                  decoration-warning="state == 'conflict'"
-                  decoration-info="state == 'running'"
                   default_order="create_date desc">
                 <field name="create_date"/>
-                <field name="config_id"/>
+                <field name="server_id"/>
                 <field name="operation"/>
                 <field name="model_name"/>
                 <field name="state" widget="badge"/>
                 <field name="records_sent"/>
                 <field name="records_received"/>
-                <field name="records_created"/>
-                <field name="records_updated"/>
                 <field name="records_errored"/>
                 <field name="duration_seconds" widget="float_time"/>
                 <field name="error_message"/>
-            </tree>
+            </list>
         </field>
     </record>
 
-    <!-- Log — Formulario -->
-    <record id="view_cida_sync_log_form" model="ir.ui.view">
-        <field name="name">cida.sync.log.form</field>
-        <field name="model">cida.sync.log</field>
+    <record id="view_base_synchro_log_form" model="ir.ui.view">
+        <field name="name">base.synchro.log.form</field>
+        <field name="model">base.synchro.log</field>
         <field name="arch" type="xml">
             <form string="Detalle de Sincronización" create="false" edit="false">
                 <header>
@@ -41,12 +33,12 @@
                 <sheet>
                     <group>
                         <group>
-                            <field name="config_id"/>
+                            <field name="server_id"/>
                             <field name="rule_id"/>
                             <field name="operation"/>
                             <field name="model_name"/>
                             <field name="create_date"/>
-                            <field name="duration_seconds"/>
+                            <field name="duration_seconds" widget="float_time"/>
                         </group>
                         <group>
                             <field name="records_sent"/>
@@ -68,23 +60,20 @@
         </field>
     </record>
 
-    <!-- Log — Búsqueda -->
-    <record id="view_cida_sync_log_search" model="ir.ui.view">
-        <field name="name">cida.sync.log.search</field>
-        <field name="model">cida.sync.log</field>
+    <record id="view_base_synchro_log_search" model="ir.ui.view">
+        <field name="name">base.synchro.log.search</field>
+        <field name="model">base.synchro.log</field>
         <field name="arch" type="xml">
             <search>
-                <field name="model_name"/>
-                <field name="config_id"/>
+                <field name="model_name" filter_domain="[('model_name', 'ilike', self)]" string="Modelo"/>
+                <field name="server_id" filter_domain="[('server_id', '=', self)]" string="Servidor"/>
                 <filter string="Completados" name="done"
                         domain="[('state', '=', 'done')]"/>
                 <filter string="Errores" name="errors"
                         domain="[('state', '=', 'error')]"/>
-                <filter string="Conflictos" name="conflicts"
-                        domain="[('state', '=', 'conflict')]"/>
                 <filter string="Hoy" name="today"
-                        domain="[('create_date', '>=', (context_today()).strftime('%Y-%m-%d'))]"/>
-                <group expand="0" string="Agrupar por">
+                        domain="[('create_date', '&gt;=', (context_today()).strftime('%Y-%m-%d'))]"/>
+                <group>
                     <filter string="Estado" name="group_state"
                             context="{'group_by': 'state'}"/>
                     <filter string="Modelo" name="group_model"
@@ -96,12 +85,17 @@
         </field>
     </record>
 
-    <!-- Log — Acción -->
-    <record id="action_cida_sync_log" model="ir.actions.act_window">
+    <record id="action_base_synchro_log" model="ir.actions.act_window">
         <field name="name">Historial de Sync</field>
-        <field name="res_model">cida.sync.log</field>
-        <field name="view_mode">tree,form</field>
+        <field name="res_model">base.synchro.log</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_base_synchro_log_search"/>
         <field name="context">{'search_default_today': 1}</field>
     </record>
+
+    <menuitem action="action_base_synchro_log"
+              id="menu_base_synchro_log"
+              parent="base_synchro.next_id_63"
+              sequence="3"/>
 
 </odoo>
